@@ -2,7 +2,7 @@
 const { ApiService } = require('../utils/apiService');
 const { SmartWindowRequest } = require('./models/SmartWindowRequest');
 const { SmartWindowResponse } = require('./models/SmartWindowResponse');
-const { api_url_sandbox, api_url_prod, smart_window_prefix } = require('./constants');
+const { api_url_sandbox, api_url_prod, smart_window_prefix, rates_prefix } = require('./constants');
 
 function DeliverySolutions(config, sandbox = false) {
     const headers = getHeaders(config.tenantId, config.apiKey);
@@ -11,6 +11,7 @@ function DeliverySolutions(config, sandbox = false) {
     const baseUrl = sandbox ? api_url_sandbox : api_url_prod;
 
     this.smartWindowsUrl = baseUrl + smart_window_prefix;
+    this.ratesUrl = baseUrl + rates_prefix;
 }
 
 /**
@@ -26,6 +27,17 @@ DeliverySolutions.prototype.getSmartWindows = async function (body) {
     }
     catch (e) {
         console.log('Error in getSmartWindows:', e);
+        throw e;
+    }
+};
+
+DeliverySolutions.prototype.getRates = async function (body) {
+    try {
+        const res = await this.apiWrapper.post(this.ratesUrl, body);
+        return res;
+    }
+    catch (e) {
+        console.log('Error in getRates:', e);
         throw e;
     }
 };
