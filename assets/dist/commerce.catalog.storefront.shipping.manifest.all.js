@@ -359,79 +359,33 @@ async function getTransitTimes(requestContext, requestPayload) {
     var smartWindowPayloads = getSmartWindowPayloads(requestPayload);
 
     console.debug('got smartwindowpayloads');
-    //return new TransitTimesResponse([]);
 
     var client = getDeliverySolutionsClient(requestContext.credentials);
 
     var allResponses = await getSmartWindows(client, smartWindowPayloads);
 
-    console.debug('got allresponses');
+    console.debug('got all smartwindow responses');
 
-    //TODO foreach allResponses getTransitTimesResponse and stitch them together
     //TODO do i need to compare item responses to see if windows are equal and combine them when i stitch them together?
     //TODO     or just return same window twice with different itemids?
     const itemIds = requestPayload.items.map(item => item.itemId);
+    console.debug('combining responses for itemids: ' + itemIds);
     return combineAllItemWindows(allResponses, itemIds);
 
-/*
-    return client.getSmartWindows(body)
-        .then(function (result) {
-            console.debug('--------------result-------------------');
-            console.debug(result);
-
-            if (result.message && result.message === 'success') {
-                console.debug('--------------success-------------------');
-                console.debug(result.data[0]);
-                const itemIds = requestPayload.items.map(item => item.itemId);
-                return getTransitTimesResponse(result.data[0], itemIds);
-            }
-
-            throw new Error('Smart Window Failed Response', result);
-        }, function (error) {
-            console.error("---------Smart Window Error-----------", error);
-            throw error;
-        }).catch(function (err) {
-            console.error("---------Smart Window Error catch-----------", err);
-            throw err;
-        });
- */
 }
 
 function combineAllItemWindows(itemResponses, itemIds) {
   console.debug('combining item responses');
-  console.debug(JSON.stringify(itemResponses));
   //TODO handle error responses
-  //const allTransitTimes = itemResponses.map(response => getTransitTimesResponse(response.data[0]));
 
   var finalResp = new TransitTimesResponse();
-  console.debug('initial final tts');
-  console.debug(finalResp.transitTimes);
   itemResponses.forEach((element, index) => {
     const itemTransitTimes = getTransitTimesResponse(element.data[0], itemIds[index]);
-    console.debug('adding item tts');
-    console.debug(itemTransitTimes);
-    finalResp.transitTimes.concat(itemTransitTimes);
-    if(finalResp.transitTimes.length === 0){
-      finalResp.transitTimes = itemTransitTimes;
-    } else {
-      finalResp.transitTimes.concat(itemTransitTimes);
-    }
+    finalResp.transitTimes = finalResp.transitTimes.concat(itemTransitTimes);
   });
-  console.debug('finalresp');
+  console.debug('final response');
   console.debug(JSON.stringify(finalResp));
   return finalResp;
-
-  /*
-  allTransitTimes.forEach((element, index) => {
-    element.itemIds = [itemIds[index]];
-  });
-  console.debug('combinedTransitTimes');
-  console.debug(JSON.stringify(allTransitTimes));
-  const response = new TransitTimesResponse(allTransitTimes);
-  console.debug(JSON.stringify(response));
-  return response;
-
-   */
 }
 
 async function getSmartWindows(client, payloads) {
@@ -442,9 +396,6 @@ async function getSmartWindows(client, payloads) {
   console.debug(responses);
 
   return responses;
-
-  //const dataPromises = responses.map(response => response.json());
-  //return await Promise.all(dataPromises);
 }
 
 async function getRates(requestContext, requestPayload) {
@@ -552,8 +503,8 @@ function getTransitTimesResponse(smartWindowResponse, itemId) {
         existingDeliveryDate.windows.push(deliveryWindow);
     });
   });
-  console.debug('single item tts');
-  console.debug(response.transitTimes);
+  //console.debug('single item tts');
+  //console.debug(response.transitTimes);
   return response.transitTimes;
 }
 
@@ -804,7 +755,6 @@ exports.TimeWindow = class {
       // Convert epoch offset to JavaScript Date object
       const date = new Date(epochOffset); // Multiply by 1000 to convert seconds to milliseconds
 
-      console.log('converting date ' + date);
       // Format the date to C# DateTime format (e.g., "yyyy-MM-ddTHH:mm:ss.fffZ", "2019-10-23T06:55:32.426Z")
       const year = date.getUTCFullYear();
       const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -819,19 +769,13 @@ exports.TimeWindow = class {
 
     var startDate = null;
     if(startsAt !== null && startsAt !== undefined){
-      console.log('start ' + JSON.stringify(startsAt));
       startDate = convertEpochToCSharpDateTime(startsAt);
     }
 
     var endDate = null;
     if(endsAt !== null && endsAt !== undefined){
-      console.log('end ' + JSON.stringify(endsAt));
       endDate = convertEpochToCSharpDateTime(endsAt);
     }
-    console.debug('startDate');
-    console.debug(startDate);
-    console.debug('enddate');
-    console.debug(endDate);
     this.startsAt = startDate;
     this.endsAt = endDate;
   }

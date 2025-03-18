@@ -38,7 +38,6 @@ exports.TimeWindow = class {
       // Convert epoch offset to JavaScript Date object
       const date = new Date(epochOffset); // Multiply by 1000 to convert seconds to milliseconds
 
-      console.log('converting date ' + date);
       // Format the date to C# DateTime format (e.g., "yyyy-MM-ddTHH:mm:ss.fffZ", "2019-10-23T06:55:32.426Z")
       const year = date.getUTCFullYear();
       const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -53,19 +52,13 @@ exports.TimeWindow = class {
 
     var startDate = null;
     if(startsAt !== null && startsAt !== undefined){
-      console.log('start ' + JSON.stringify(startsAt));
       startDate = convertEpochToCSharpDateTime(startsAt);
     }
 
     var endDate = null;
     if(endsAt !== null && endsAt !== undefined){
-      console.log('end ' + JSON.stringify(endsAt));
       endDate = convertEpochToCSharpDateTime(endsAt);
     }
-    console.debug('startDate');
-    console.debug(startDate);
-    console.debug('enddate');
-    console.debug(endDate);
     this.startsAt = startDate;
     this.endsAt = endDate;
   }
