@@ -6,7 +6,7 @@ module.exports = {
   }
 };
 
-},{"./domains/commerce.catalog.storefront.shipping/embedded.commerce.catalog.storefront.shipping.shippingExtensibility.main":7}],2:[function(require,module,exports){
+},{"./domains/commerce.catalog.storefront.shipping/embedded.commerce.catalog.storefront.shipping.shippingExtensibility.main":9}],2:[function(require,module,exports){
 module.exports = {
     FULFILLMENT_METHOD_DELIVERY: 'delivery'
 };
@@ -15,14 +15,15 @@ module.exports = {
     ENVIRONMENT: 'environment',
     api_url_sandbox: 'https://sandbox.api.deliverysolutions.co/api/v2',
     api_url_prod: 'https://production.api.deliverysolutions.co/api/v2',
-    smart_window_prefix: '/smartWindows'
+    smart_window_prefix: '/smartWindows',
+    rates_prefix: '/rates'
 };
 },{}],4:[function(require,module,exports){
 //var _ = require("underscore");
 const { ApiService } = require('../utils/apiService');
 const { SmartWindowRequest } = require('./models/SmartWindowRequest');
 const { SmartWindowResponse } = require('./models/SmartWindowResponse');
-const { api_url_sandbox, api_url_prod, smart_window_prefix } = require('./constants');
+const { api_url_sandbox, api_url_prod, smart_window_prefix, rates_prefix } = require('./constants');
 
 function DeliverySolutions(config, sandbox = false) {
     const headers = getHeaders(config.tenantId, config.apiKey);
@@ -31,6 +32,7 @@ function DeliverySolutions(config, sandbox = false) {
     const baseUrl = sandbox ? api_url_sandbox : api_url_prod;
 
     this.smartWindowsUrl = baseUrl + smart_window_prefix;
+    this.ratesUrl = baseUrl + rates_prefix;
 }
 
 /**
@@ -50,6 +52,17 @@ DeliverySolutions.prototype.getSmartWindows = async function (body) {
     }
 };
 
+DeliverySolutions.prototype.getRates = async function (body) {
+    try {
+        const res = await this.apiWrapper.post(this.ratesUrl, body);
+        return res;
+    }
+    catch (e) {
+        console.log('Error in getRates:', e);
+        throw e;
+    }
+};
+
 const getHeaders = function (tenantId, apiKey, contentType = 'application/json') {
     return {
         'Content-Type': contentType,
@@ -59,7 +72,161 @@ const getHeaders = function (tenantId, apiKey, contentType = 'application/json')
 };
 
 exports.DeliverySolutionsSdk = DeliverySolutions;
-},{"../utils/apiService":9,"./constants":3,"./models/SmartWindowRequest":5,"./models/SmartWindowResponse":6}],5:[function(require,module,exports){
+},{"../utils/apiService":12,"./constants":3,"./models/SmartWindowRequest":7,"./models/SmartWindowResponse":8}],5:[function(require,module,exports){
+exports.DeliveryAddress = class {
+    constructor(apartmentNumber, street, street2, city, state, zipcode, country, latitude, longitude) {
+        this.apartmentNumber = apartmentNumber; // House Number / Apartment / Suite #
+        this.street = street; // Address Line 1 (Street Number and Street Name).
+        this.street2 = street2; // Address Line 2 (not to be used for apartment / suite #).
+        this.city = city; // Name of city, town, village
+        this.state = state; // 2-character State Code.
+        this.zipcode = zipcode; // Required. Zip or postal code. For USA, 9 digit zipcodes are accepted, the first 5 digits are mandatory, the last 4 digits are optional.
+        this.country = country; // 2-character country code ISO 3166-1 alpha-2. Defaults to US.
+        this.latitude = latitude; // Latitude coordinates.
+        this.longitude = longitude; // Longitude coordinates.
+    }
+};
+
+exports.Time = class {
+    constructor(startsAt, endsAt) {
+        this.startsAt = startsAt; // Start of the window. Unix time in milliseconds. (conditional)
+        this.endsAt = endsAt; // End of the window. Unix time in milliseconds. (conditional)
+    }
+};
+
+exports.Item = class {
+    constructor(sku, upc, quantity, size, weight, price, sale_price, image, title, description, itemAttributes, tags) {
+        this.sku = sku; // Required. An ID that indicate/identify the product/variant from the brand’s catalog.
+        this.upc = upc; // Universal Product Code for the item
+        this.quantity = quantity; // Number of items of the SKU. Defaults to 1
+        this.size = size instanceof exports.Size ? size : new exports.Size(); // Dimensions of the item. If not provided value will be considered as null to indicate not provided.
+        this.weight = weight; // Weight in pounds (lbs) of an item. If not provided ,value will be considered as null to indicate not provided.
+        this.price = price; // Retail price of the item. If not provided , value will be considered as null to indicate not provided.
+        this.sale_price = sale_price; // Sale price of the item that can be used to indicate a different price from theprice. If not provided, will inherit the price. If not provided and can’t be inherited from price, value will be considered as null to indicate not provided.
+        this.image = image; // Link to the image file of the item. Should be full public URL. File types accepted are JPG and PNG. If not provided, will inherit from catalog. If not provided and can’t be inherited from catalog, value will be considered as null to indicate not provided.
+        this.title = title; // Title of the item. If not available , value will be considered as null to indicate not provided.
+        this.description = description; // Description of the item. If not provided , value will be considered as null to indicate not provided.
+        this.itemAttributes = itemAttributes; // JSON. Custom item attributes. If not provided , value will be assigned as null.
+        this.tags = Array.isArray(tags) ? tags.map(tag => tag instanceof string ? tag : null) : []; // Addiitonal information, related to the item, can be added here
+    }
+};
+
+exports.Option = class {
+    constructor(allowOrchestration, displayWinningRates) {
+        this.allowOrchestration = allowOrchestration; // If this option is set to true then rates will be send to the orchestration engine, which will filter the rates according the the orchestration rules.
+        this.displayWinningRates = displayWinningRates; // This option decides whether to send all the rates or to send only the rates selected by the orchestration engine.
+    }
+};
+
+exports.Size = class {
+    constructor(height, width, length) {
+        this.height = height; //Required. Height (in inches)
+        this.width = width;  //Required. Width (in inches)
+        this.length = length; //Required. Length (in inches)
+    }
+};
+
+exports.PackageContent = class {
+    constructor(isSpirit, isBeerOrWine, isTobacco, isFragile, isRx, hasPerishableItems) {
+        this.isSpirit = isSpirit; // Checks whether package contains Spirit
+        this.isBeerOrWine = isBeerOrWine; // Checks whether package contains Beer or Wine
+        this.isTobacco = isTobacco; // Checks whether package contains Tobacco
+        this.isFragile = isFragile; // Checks whether package contains Fragile items
+        this.isRx = isRx; // Checks whether package contains RX
+        this.hasPerishableItems = hasPerishableItems; // Checks whether package contains Perishable items
+    }
+};
+
+exports.DSPackage = class {
+    constructor(name, description, size, weight, quantity, items, itemList, temperatureControl, content, barcode) {
+        this.name = name; // Required. Name of package created in our system (see Create Package.), or pass the value custom.
+        this.description = description; // A brief description about the package contents.
+        this.size = size instanceof exports.Size ? size : new exports.Size(); // height, width, length (in inches). If pre-configured package name is used, size is not required.
+        this.weight = weight; // Weight of the package in pounds (lbs). If pre-configured package name is used, weight is not required. Defaults to 2.23
+        this.quantity = quantity; // Required. Number of Packages. Defaults to 1.
+        this.items = items; // Number of items in a single package. Default is 1.
+        this.itemList = Array.isArray(itemList) ? itemList.map(item => item instanceof exports.Item ? item : new exports.Item()) : []; // Array of items in the package. In the absence of size, cubic dimensions and weight will be derived from this list.
+        this.temperatureControl = temperatureControl; // Temperature information of the package
+        this.content = content instanceof exports.PackageContent ? content : null; // Information about what the package contains
+        this.barcode = barcode; // Barcode sent to the provider for scanning the packages
+    }
+};
+
+exports.RatesRequest = class {
+    constructor(deliveryAddress, storeExternalIds, type, orderValue, pickupTime, dropoffTime, options, packages, isSpirit, isBeerOrWine, isTobacco, isFragile, isRx, hasRefrigeratedItems, hasPerishableItems, itemList, matchProviderTags, orderAttributes, matchLocationTags, proposedProviders) {
+        this.deliveryAddress = deliveryAddress instanceof exports.DeliveryAddress ? deliveryAddress : new exports.DeliveryAddress(); // Required. Address where the package will be delivered
+        this.storeExternalIds = Array.isArray(storeExternalIds) ? storeExternalIds.map(id => id instanceof string ? id : null) : []; // Required. Array of Unique Id of the pickup locations.
+        this.type = type; // This field is used to indicate preferred fulfillment type. If delivery/in-store-pickup/curbside/shipping are provided as the type, the system will provide rates to only those Providers that matches the type. If type is not specified, all available fulfilment options will be considered for rates.
+        this.orderValue = orderValue; // Value of the order in dollars & cents. e.g., 10.00 or 116.50.
+        this.pickupTime = pickupTime instanceof exports.Time ? pickupTime : new exports.Time(); // Check provider availability based on pickup time. If not provided, the system will use the appropriate time window. If pickupTime is null then it means that the package needs to be picked as soon as possible.
+        this.dropoffTime = dropoffTime instanceof exports.Time ? dropoffTime : new exports.Time(); // Check provider availability based on drop-off time. If not provided, the system will use the appropriate time window. If dropoff time is null then it means that the package needs to be dropped off as soon as possible after the pickup.
+        this.options = options instanceof exports.Option ? options : new exports.Option(); // Override default configured rate options set for the business.
+        this.packages = Array.isArray(packages) ? packages.map(pkg => pkg instanceof exports.DSPackage ? pkg : new exports.DSPackage()) : []; // Package dimensions, weight and quantity details help in providing accurate estimates and winning providers. For shipping type orders, packages are converted to shipments with applicable providers
+        this.isSpirit = isSpirit; // Flag to indicate if the order contains spirits.
+        this.isBeerOrWine = isBeerOrWine; // Flag to indicate if the order contains beer or wine.
+        this.isTobacco = isTobacco; // Flag to indicate if the order contains tobacco.
+        this.isFragile = isFragile; // Flag to indicate if the order contains fragile items.
+        this.isRx = isRx; // Flag to indicate if the order contains prescription items.
+        this.hasRefrigeratedItems = hasRefrigeratedItems; // Flag to indicate if the order contains refrigerated items.
+        this.hasPerishableItems = hasPerishableItems; // Flag to indicate if the order contains perishable items.
+        this.itemList = Array.isArray(itemList) ? itemList.map(item => item instanceof exports.Item ? item : new exports.Item()) : []; // Items in the order.
+        this.matchProviderTags = Array.isArray(matchProviderTags) ? matchProviderTags.map(matchProviderTag => matchProviderTag instanceof string ? matchProviderTag : null) : []; // Rates for providers matching at least one tag from the requested tags are returned.
+        this.orderAttributes = orderAttributes; // JSON. Configurable key-value pairs of custom order attributes.
+        this.matchLocationTags = Array.isArray(matchLocationTags) ? matchLocationTags.map(matchLocationTag => matchLocationTag instanceof string ? matchLocationTag : null) : []; // Rates for locations matching at least one tag from the requested location tags, are returned.
+        this.proposedProviders = proposedProviders; // Override orchestration and get rates with the specified Provider and Service.
+    }
+};
+},{}],6:[function(require,module,exports){
+exports.Rate = class {
+    constructor(type, provider, serviceType, serviceId, deliveryWindowId, deliveryWindows, requestedPickupTime, requestedPickupTimeEnds, requestedDropoffTime, requestedDropoffTimeEnds, estimatedPickupTime, estimatedPickupTimeStarts, estimatedPickupTimeEnds, estimatedDeliveryTime, estimatedDeliveryTimeStarts, estimatedDeliveryTimeEnds, expires, currencyCode, currency, amount, fee, chargeDetails, ruleApplied, noEstimate, orderType, supportsAlternateLocation, code, tags, storeExternalId) {
+        this.type = type; // Type of rate
+        this.provider = provider; // Provider of the rate
+        this.serviceType = serviceType; // Type of service
+        this.serviceId = serviceId; // Service ID
+        this.deliveryWindowId = deliveryWindowId; // Delivery Window ID
+        this.deliveryWindows = deliveryWindows; // Array of delivery windows
+        this.requestedPickupTime = requestedPickupTime; // Requested Pickup Time
+        this.requestedPickupTimeEnds = requestedPickupTimeEnds; // Requested Pickup Time Ends
+        this.requestedDropoffTime = requestedDropoffTime; // Requested Dropoff Time
+        this.requestedDropoffTimeEnds = requestedDropoffTimeEnds; // Requested Dropoff Time Ends
+        this.estimatedPickupTime = estimatedPickupTime; // Estimated Pickup Time
+        this.estimatedPickupTimeStarts = estimatedPickupTimeStarts; // Estimated Pickup Time Starts
+        this.estimatedPickupTimeEnds = estimatedPickupTimeEnds; // Estimated Pickup Time Ends
+        this.estimatedDeliveryTime = estimatedDeliveryTime; // Estimated Delivery Time
+        this.estimatedDeliveryTimeStarts = estimatedDeliveryTimeStarts; // Estimated Delivery Time Starts
+        this.estimatedDeliveryTimeEnds = estimatedDeliveryTimeEnds; // Estimated Delivery Time Ends
+        this.expires = expires; // Expiry time of the rate
+        this.currencyCode = currencyCode; // Currency Code
+        this.currency = currency; // Currency
+        this.amount = amount; // Amount
+        this.fee = fee; // Fee
+        this.chargeDetails = chargeDetails; // Charge Details
+        this.ruleApplied = ruleApplied; // Rule Applied
+        this.noEstimate = noEstimate; // No Estimate
+        this.orderType = orderType; // Order Type
+        this.supportsAlternateLocation = supportsAlternateLocation; // Supports Alternate Location
+        this.code = code; // Code
+        this.tags = tags; // Tags
+        this.storeExternalId = storeExternalId; // Store External ID. i.e. locationCode
+    }
+};
+
+exports.Error = class {
+    constructor(type, message, parameter) {
+        this.type = type; // Type of error
+        this.message = message; // Error message
+        this.parameter = parameter; // Parameter
+    }
+};
+
+exports.RatesResponse = class {
+    constructor(rates, errors, rateId){
+        this.rates = Array.isArray(rates) ? rates.map(rate => rate instanceof exports.Rate ? rate : null) : []; // Array of rates
+        this.errors = Array.isArray(errors) ? errors.map(error => error instanceof exports.Error ? error : null) : []; // Array of errors
+        this.rateId = rateId; // Rate ID
+    }
+};
+},{}],7:[function(require,module,exports){
 exports.Size = class {
     constructor(height, width, length) {
         this.height = height;
@@ -94,7 +261,7 @@ exports.SmartWindowRequest = class {
         this.options = options instanceof exports.Options ? options : new exports.Options(options); // Override default configured options. Refer Options function below.
     }
 };
-},{}],6:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 module.exports = class SmartWindowResponse {
     constructor(message, data) {
         this.message = message;
@@ -142,10 +309,13 @@ exports.DropoffTime = class {
         this.endsAt = endsAt;
     }
 };
-},{}],7:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 const { SmartWindowRequest } = require('../../deliverysolutions/models/SmartWindowRequest');
+const { RatesRequest, Item, DSPackage } = require('../../deliverysolutions/models/RatesRequest');
+const { RatesResponse } = require('../../deliverysolutions/models/RatesResponse');
 const { Data } = require('../../deliverysolutions/models/SmartWindowResponse');
 const { TransitTimesResponse, CarrierTransitTime, EstimatedDeliveryDate, Window } = require('../../models/TransitTimesResponse');
+const { GetRatesResponse, Rate, ShippingRate, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
 const { DeliverySolutionsSdk } = require('../../deliverysolutions/deliverysolutionssdk');
 const { FULFILLMENT_METHOD_DELIVERY } = require('../../constants');
 
@@ -165,6 +335,9 @@ async function route(context, callback) {
 
     if (method === 'transit-times') {
         return await getTransitTimes(requestContext, requestPayload);
+    }
+    else if (method === 'rates') {
+        return await getRates(requestContext, requestPayload);
     }
 }
 
@@ -203,6 +376,52 @@ async function getTransitTimes(requestContext, requestPayload) {
             throw error;
         }).catch(function (err) {
             console.error("---------Smart Window Error catch-----------", err);
+            throw err;
+        });
+}
+
+async function getRates(requestContext, requestPayload) {
+
+    //This application only suppors Delivery
+    if (requestPayload.items.every(item => item.fulfillmentMethod.toLowerCase() != FULFILLMENT_METHOD_DELIVERY)) {
+        //if request doesnt have any Delivery item, return empty list
+        return new GetRatesResponse(null, null, []);
+    }
+
+    console.debug('--------------requestPayload-------------------');
+    console.debug(requestPayload);
+
+    var body = getRatesPayload(requestPayload);
+
+    console.debug('--------------body-------------------');
+    console.debug(body);
+
+    var client = getDeliverySolutionsClient(requestContext.credentials);
+
+    return client.getRates(body)
+        .then(function (result) {
+            console.debug('--------------result-------------------');
+            console.debug(result);
+
+            if (!result)
+                throw new Error('DS Get Rates Response', result);
+
+            // if (result.errors && result.errors.length > 0) {
+            //     console.debug('--------------Error Response-------------------');
+            //     console.debug(result.errors);
+            //     throw new Error('DS Get Rates Error Response', result.message);
+            // }
+
+            const response = getRatesResponse(result);
+            console.debug('--------------Carrier Rates-------------------');
+            console.debug(response);
+            return response;
+
+        }, function (error) {
+            console.error("---------DS Get Rates Error-----------", error);
+            throw error;
+        }).catch(function (err) {
+            console.error("---------DS Get Rates Error catch-----------", err);
             throw err;
         });
 }
@@ -280,7 +499,199 @@ function CreateEstimatedDeliveryDate(deliveryDate, timeZone) {
     estimatedDeliveryDate.timeZone = timeZone;
     return estimatedDeliveryDate;
 }
-},{"../../constants":2,"../../deliverysolutions/deliverysolutionssdk":4,"../../deliverysolutions/models/SmartWindowRequest":5,"../../deliverysolutions/models/SmartWindowResponse":6,"../../models/TransitTimesResponse":8}],8:[function(require,module,exports){
+
+function getRatesPayload(requestPayload) {
+    var body = new RatesRequest();
+    body.deliveryAddress = {
+        apartmentNumber: requestPayload.destinationAddress.address1,
+        street: requestPayload.destinationAddress.address2,
+        street2: requestPayload.destinationAddress.address3,
+        city: requestPayload.destinationAddress.cityOrTown,
+        state: requestPayload.destinationAddress.stateOrProvince,
+        zipcode: requestPayload.destinationAddress.postalOrZipCode,
+        country: requestPayload.destinationAddress.countryCode
+    };
+    body.storeExternalIds.push(requestPayload.originLocationCode);
+    body.type = 'delivery';
+    body.orderValue = requestPayload.orderTotal;
+    body.pickupTime = null;
+    body.dropoffTime = null;
+    //body.options = '';
+    body.items = getRatesItem(requestPayload.items);
+
+    return body;
+}
+
+function getRatesItem(items) {
+    var dsItems = [];
+    items.forEach(item => {
+        if (item.fulfillmentMethod.toLowerCase() != FULFILLMENT_METHOD_DELIVERY) {
+            return;
+        }
+
+        var dsItem = new Item();
+        dsItem.sku = item.productSummaries[0].productCode;
+        dsItem.upc = item.productSummaries[0].productCode;
+        dsItem.quantity = item.quantity;
+        dsItem.size = {
+            height: item.unitMeasurements.height.value,
+            width: item.unitMeasurements.width.value,
+            length: item.unitMeasurements.length.value
+        };
+        dsItem.weight = item.unitMeasurements.weight.value;
+        dsItem.price = item.productSummaries[0].price;
+        dsItem.sale_price = item.productSummaries[0].price;
+        //dsItem.image = item.image;
+        //dsItem.title = item.title;
+        dsItem.description = item.productSummaries[0].productDescription;
+        dsItem.itemAttributes = item.data;
+        dsItems.push(dsItem);
+    });
+    return dsItems;
+}
+
+/**
+ * 
+ * @param {RatesResponse} rates 
+ */
+function getRatesResponse(ratesResponse) {
+    const response = new GetRatesResponse();
+
+    ratesResponse.rates.forEach(rate => {
+        if (!rate || rate.amount === 0) {
+            return;
+        }
+
+        var exisitngCarrierRate = response.carrierRatesResponses.find(x => x.carrierId === rate.provider);
+        if (!exisitngCarrierRate) {
+            exisitngCarrierRate = new Rate();
+            exisitngCarrierRate.carrierId = rate.provider;
+            response.carrierRatesResponses.push(exisitngCarrierRate);
+        }
+
+        var shippingRate = new ShippingRate();
+        const pickupDate = new Date(rate.estimatedPickupTime);
+        shippingRate.code = rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
+        shippingRate.content = {};
+        shippingRate.amount = getAmount(rate.amount, rate.fee, rate.currency);
+        //shippingRate.daysInTransit = rate.estimatedDeliveryTime;
+        //shippingRate.shippingItemRates = rate.chargeDetails;
+        //shippingRate.customAttributes = rate.tags;
+        //shippingRate.messages = rate.ruleApplied;
+        //shippingRate.data = rate;
+        shippingRate.windows = rate.windows;
+        exisitngCarrierRate.shippingRates.push(shippingRate);
+    });
+
+    getRatesErrorResponse(ratesResponse, response);
+    return response;
+}
+
+/**
+ * 
+ * @param {RatesResponse} ratesResponse 
+ */
+function getRatesErrorResponse(ratesResponse, existingResponse) {
+    const response = existingResponse || new GetRatesResponse();
+
+    if (!ratesResponse || !ratesResponse.errors || ratesResponse.errors.length === 0) {
+        return;
+    }
+
+    ratesResponse.errors.forEach(error => {
+        var exisitngCarrierRate = response.carrierRatesResponses.find(x => x.carrierId === error.provider);
+        if (!exisitngCarrierRate) {
+            exisitngCarrierRate = new Rate();
+            exisitngCarrierRate.carrierId = error.provider;
+            response.carrierRatesResponses.push(exisitngCarrierRate);
+        }
+
+        var shippingRate = exisitngCarrierRate.shippingRates.find(x => !x.error && x.errors.length > 0) || new ShippingRate();
+        shippingRate.code = error.code;
+        shippingRate.messages.push(new ShippingRateValidationMessage(null, error.message, error.severity));
+        exisitngCarrierRate.shippingRates.push(shippingRate);
+    });
+
+    return response;
+}
+
+//If fee field is having greater value than amount, then subtract amount from fee and difference is actual delivery fee. 
+//for example in the Door-dash delivery response above, amount is 1092 (i.e. 10$ and 90 cents) and fees is 1292 (i.e. 12$ and 90 cents). 
+//So here delivery fee computed will be 1292-1092 =200 i.e. 2$s
+//IF fee field is having smaller value than amount, then use that fields value itself as a deliver fees'
+//for example in the Uber delivery response above, amount is 1087 (i.e. 10$ and 82 cents) and fees is 200 (i.e. 2$). 
+//So here use delivery fee directly (2$) without any computation.
+function getAmount(amount, fee, currency) {
+    var computedAmount = amount;
+    if (fee > amount) {
+        computedAmount = fee - amount;
+    }
+    else if (fee < amount) {
+        computedAmount = fee;
+    }
+
+    return !currency || (currency && currency.toLowerCase()) === 'cents' ? (computedAmount / 100) : computedAmount;
+}
+},{"../../constants":2,"../../deliverysolutions/deliverysolutionssdk":4,"../../deliverysolutions/models/RatesRequest":5,"../../deliverysolutions/models/RatesResponse":6,"../../deliverysolutions/models/SmartWindowRequest":7,"../../deliverysolutions/models/SmartWindowResponse":8,"../../models/GetRatesResponse":10,"../../models/TransitTimesResponse":11}],10:[function(require,module,exports){
+exports.Content = class {
+    constructor(localeCode, name) {
+        this.localeCode = localeCode;
+        this.name = name;
+    }
+};
+
+exports.ShippingItemRate = class {
+    constructor(itemId, quantity, amount) {
+        this.itemId = itemId;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
+};
+
+exports.Window = class{
+    constructor(pickupTime, dropoffTime) {
+        this.pickupTime = pickupTime;
+        this.dropoffTime = dropoffTime;
+    }
+};
+
+exports.ShippingRateValidationMessage = class {
+    constructor(helpLink, message, severity) {
+        this.helpLink = helpLink;
+        this.message = message;
+        this.severity = severity;
+    }
+};
+
+exports.ShippingRate = class {
+    constructor(code, content, amount, daysInTransit, shippingItemRates, customAttributes, messages, data, windows) {
+        this.code = code;
+        this.content = content instanceof exports.Content ? content : new exports.Content();
+        this.amount = amount;
+        this.daysInTransit = daysInTransit;
+        this.shippingItemRates = Array.isArray(shippingItemRates) ? shippingItemRates.map(rate => rate instanceof exports.ShippingItemRate ? rate : new exports.ShippingItemRate()) : [];
+        this.customAttributes = customAttributes;
+        this.messages = Array.isArray(messages) ? messages.map(message => message instanceof exports.ShippingRateValidationMessage ? message : new exports.ShippingRateValidationMessage()) : [];
+        this.data = data;
+        this.windows = Array.isArray(windows) ? windows.map(window => window instanceof exports.Window ? window : new exports.Window()) : [];
+    }
+};
+
+exports.Rate = class {
+    constructor(carrierId, shippingRates, fulfillmentMethod, customAttributes){
+        this.carrierId = carrierId;
+        this.shippingRates = Array.isArray(shippingRates) ? shippingRates.map(rate => rate instanceof exports.ShippingRate ? rate : new exports.ShippingRate()) : [];
+        this.fulfillmentMethod = 'Delivery';
+        this.customAttributes = customAttributes;
+    }
+};
+
+exports.GetRatesResponse = class {
+    constructor(carrierRatesResponses) {
+        this.carrierRatesResponses = Array.isArray(carrierRatesResponses) ? carrierRatesResponses.map(rate => rate instanceof exports.Rate ? rate : new exports.Rate()) : [];
+    }
+};
+},{}],11:[function(require,module,exports){
 exports.TransitTimesResponse = class {
     constructor(carrierTransitTimes) {
         this.transitTimes = Array.isArray(carrierTransitTimes) ? carrierTransitTimes.map(x => x instanceof exports.CarrierTransitTime ? x : null) : [];
@@ -310,7 +721,7 @@ exports.Window = class {
         this.dropoffTime = dropoffTime;
     }
 };
-},{}],9:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 const needle = require("needle");
 
 function ApiService(headers) {
@@ -392,7 +803,7 @@ const send = (url, body, options, method = 'get') => {
 };
 
 exports.ApiService = ApiService;
-},{"needle":35}],10:[function(require,module,exports){
+},{"needle":38}],13:[function(require,module,exports){
 "use strict";
 var Buffer = require("safer-buffer").Buffer;
 
@@ -949,7 +1360,7 @@ function findIdx(table, val) {
 }
 
 
-},{"safer-buffer":43}],11:[function(require,module,exports){
+},{"safer-buffer":46}],14:[function(require,module,exports){
 "use strict";
 
 // Description of supported double byte encodings and aliases.
@@ -1127,7 +1538,7 @@ module.exports = {
     'xxbig5': 'big5hkscs',
 };
 
-},{"./tables/big5-added.json":17,"./tables/cp936.json":18,"./tables/cp949.json":19,"./tables/cp950.json":20,"./tables/eucjp.json":21,"./tables/gb18030-ranges.json":22,"./tables/gbk-added.json":23,"./tables/shiftjis.json":24}],12:[function(require,module,exports){
+},{"./tables/big5-added.json":20,"./tables/cp936.json":21,"./tables/cp949.json":22,"./tables/cp950.json":23,"./tables/eucjp.json":24,"./tables/gb18030-ranges.json":25,"./tables/gbk-added.json":26,"./tables/shiftjis.json":27}],15:[function(require,module,exports){
 "use strict";
 
 // Update this array if you add/rename/remove files in this directory.
@@ -1151,7 +1562,7 @@ for (var i = 0; i < modules.length; i++) {
             exports[enc] = module[enc];
 }
 
-},{"./dbcs-codec":10,"./dbcs-data":11,"./internal":13,"./sbcs-codec":14,"./sbcs-data":16,"./sbcs-data-generated":15,"./utf16":25,"./utf7":26}],13:[function(require,module,exports){
+},{"./dbcs-codec":13,"./dbcs-data":14,"./internal":16,"./sbcs-codec":17,"./sbcs-data":19,"./sbcs-data-generated":18,"./utf16":28,"./utf7":29}],16:[function(require,module,exports){
 "use strict";
 var Buffer = require("safer-buffer").Buffer;
 
@@ -1341,7 +1752,7 @@ InternalDecoderCesu8.prototype.end = function() {
     return res;
 }
 
-},{"safer-buffer":43,"string_decoder":undefined}],14:[function(require,module,exports){
+},{"safer-buffer":46,"string_decoder":undefined}],17:[function(require,module,exports){
 "use strict";
 var Buffer = require("safer-buffer").Buffer;
 
@@ -1415,7 +1826,7 @@ SBCSDecoder.prototype.write = function(buf) {
 SBCSDecoder.prototype.end = function() {
 }
 
-},{"safer-buffer":43}],15:[function(require,module,exports){
+},{"safer-buffer":46}],18:[function(require,module,exports){
 "use strict";
 
 // Generated data for sbcs codec. Don't edit manually. Regenerate using generation/gen-sbcs.js script.
@@ -1867,7 +2278,7 @@ module.exports = {
     "chars": "���������������������������������กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู����฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛����"
   }
 }
-},{}],16:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 "use strict";
 
 // Manually added data to be used by sbcs codec in addition to generated one.
@@ -2043,7 +2454,7 @@ module.exports = {
 };
 
 
-},{}],17:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 module.exports=[
 ["8740","䏰䰲䘃䖦䕸𧉧䵷䖳𧲱䳢𧳅㮕䜶䝄䱇䱀𤊿𣘗𧍒𦺋𧃒䱗𪍑䝏䗚䲅𧱬䴇䪤䚡𦬣爥𥩔𡩣𣸆𣽡晍囻"],
 ["8767","綕夝𨮹㷴霴𧯯寛𡵞媤㘥𩺰嫑宷峼杮薓𩥅瑡璝㡵𡵓𣚞𦀡㻬"],
@@ -2167,7 +2578,7 @@ module.exports=[
 ["fea1","𤅟𤩹𨮏孆𨰃𡢞瓈𡦈甎瓩甞𨻙𡩋寗𨺬鎅畍畊畧畮𤾂㼄𤴓疎瑝疞疴瘂瘬癑癏癯癶𦏵皐臯㟸𦤑𦤎皡皥皷盌𦾟葢𥂝𥅽𡸜眞眦着撯𥈠睘𣊬瞯𨥤𨥨𡛁矴砉𡍶𤨒棊碯磇磓隥礮𥗠磗礴碱𧘌辸袄𨬫𦂃𢘜禆褀椂禀𥡗禝𧬹礼禩渪𧄦㺨秆𩄍秔"]
 ]
 
-},{}],18:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 module.exports=[
 ["0","\u0000",127,"€"],
 ["8140","丂丄丅丆丏丒丗丟丠両丣並丩丮丯丱丳丵丷丼乀乁乂乄乆乊乑乕乗乚乛乢乣乤乥乧乨乪",5,"乲乴",9,"乿",6,"亇亊"],
@@ -2433,7 +2844,7 @@ module.exports=[
 ["fe40","兀嗀﨎﨏﨑﨓﨔礼﨟蘒﨡﨣﨤﨧﨨﨩"]
 ]
 
-},{}],19:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 module.exports=[
 ["0","\u0000",127],
 ["8141","갂갃갅갆갋",4,"갘갞갟갡갢갣갥",6,"갮갲갳갴"],
@@ -2708,7 +3119,7 @@ module.exports=[
 ["fda1","爻肴酵驍侯候厚后吼喉嗅帿後朽煦珝逅勛勳塤壎焄熏燻薰訓暈薨喧暄煊萱卉喙毁彙徽揮暉煇諱輝麾休携烋畦虧恤譎鷸兇凶匈洶胸黑昕欣炘痕吃屹紇訖欠欽歆吸恰洽翕興僖凞喜噫囍姬嬉希憙憘戱晞曦熙熹熺犧禧稀羲詰"]
 ]
 
-},{}],20:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 module.exports=[
 ["0","\u0000",127],
 ["a140","　，、。．‧；：？！︰…‥﹐﹑﹒·﹔﹕﹖﹗｜–︱—︳╴︴﹏（）︵︶｛｝︷︸〔〕︹︺【】︻︼《》︽︾〈〉︿﹀「」﹁﹂『』﹃﹄﹙﹚"],
@@ -2887,7 +3298,7 @@ module.exports=[
 ["f9a1","龤灨灥糷虪蠾蠽蠿讞貜躩軉靋顳顴飌饡馫驤驦驧鬤鸕鸗齈戇欞爧虌躨钂钀钁驩驨鬮鸙爩虋讟钃鱹麷癵驫鱺鸝灩灪麤齾齉龘碁銹裏墻恒粧嫺╔╦╗╠╬╣╚╩╝╒╤╕╞╪╡╘╧╛╓╥╖╟╫╢╙╨╜║═╭╮╰╯▓"]
 ]
 
-},{}],21:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 module.exports=[
 ["0","\u0000",127],
 ["8ea1","｡",62],
@@ -3071,9 +3482,9 @@ module.exports=[
 ["8feda1","黸黿鼂鼃鼉鼏鼐鼑鼒鼔鼖鼗鼙鼚鼛鼟鼢鼦鼪鼫鼯鼱鼲鼴鼷鼹鼺鼼鼽鼿齁齃",4,"齓齕齖齗齘齚齝齞齨齩齭",4,"齳齵齺齽龏龐龑龒龔龖龗龞龡龢龣龥"]
 ]
 
-},{}],22:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 module.exports={"uChars":[128,165,169,178,184,216,226,235,238,244,248,251,253,258,276,284,300,325,329,334,364,463,465,467,469,471,473,475,477,506,594,610,712,716,730,930,938,962,970,1026,1104,1106,8209,8215,8218,8222,8231,8241,8244,8246,8252,8365,8452,8454,8458,8471,8482,8556,8570,8596,8602,8713,8720,8722,8726,8731,8737,8740,8742,8748,8751,8760,8766,8777,8781,8787,8802,8808,8816,8854,8858,8870,8896,8979,9322,9372,9548,9588,9616,9622,9634,9652,9662,9672,9676,9680,9702,9735,9738,9793,9795,11906,11909,11913,11917,11928,11944,11947,11951,11956,11960,11964,11979,12284,12292,12312,12319,12330,12351,12436,12447,12535,12543,12586,12842,12850,12964,13200,13215,13218,13253,13263,13267,13270,13384,13428,13727,13839,13851,14617,14703,14801,14816,14964,15183,15471,15585,16471,16736,17208,17325,17330,17374,17623,17997,18018,18212,18218,18301,18318,18760,18811,18814,18820,18823,18844,18848,18872,19576,19620,19738,19887,40870,59244,59336,59367,59413,59417,59423,59431,59437,59443,59452,59460,59478,59493,63789,63866,63894,63976,63986,64016,64018,64021,64025,64034,64037,64042,65074,65093,65107,65112,65127,65132,65375,65510,65536],"gbChars":[0,36,38,45,50,81,89,95,96,100,103,104,105,109,126,133,148,172,175,179,208,306,307,308,309,310,311,312,313,341,428,443,544,545,558,741,742,749,750,805,819,820,7922,7924,7925,7927,7934,7943,7944,7945,7950,8062,8148,8149,8152,8164,8174,8236,8240,8262,8264,8374,8380,8381,8384,8388,8390,8392,8393,8394,8396,8401,8406,8416,8419,8424,8437,8439,8445,8482,8485,8496,8521,8603,8936,8946,9046,9050,9063,9066,9076,9092,9100,9108,9111,9113,9131,9162,9164,9218,9219,11329,11331,11334,11336,11346,11361,11363,11366,11370,11372,11375,11389,11682,11686,11687,11692,11694,11714,11716,11723,11725,11730,11736,11982,11989,12102,12336,12348,12350,12384,12393,12395,12397,12510,12553,12851,12962,12973,13738,13823,13919,13933,14080,14298,14585,14698,15583,15847,16318,16434,16438,16481,16729,17102,17122,17315,17320,17402,17418,17859,17909,17911,17915,17916,17936,17939,17961,18664,18703,18814,18962,19043,33469,33470,33471,33484,33485,33490,33497,33501,33505,33513,33520,33536,33550,37845,37921,37948,38029,38038,38064,38065,38066,38069,38075,38076,38078,39108,39109,39113,39114,39115,39116,39265,39394,189000]}
-},{}],23:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 module.exports=[
 ["a140","",62],
 ["a180","",32],
@@ -3130,7 +3541,7 @@ module.exports=[
 ["fe80","䜣䜩䝼䞍⻊䥇䥺䥽䦂䦃䦅䦆䦟䦛䦷䦶䲣䲟䲠䲡䱷䲢䴓",6,"䶮",93]
 ]
 
-},{}],24:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 module.exports=[
 ["0","\u0000",128],
 ["a1","｡",62],
@@ -3257,7 +3668,7 @@ module.exports=[
 ["fc40","髜魵魲鮏鮱鮻鰀鵰鵫鶴鸙黑"]
 ]
 
-},{}],25:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 "use strict";
 var Buffer = require("safer-buffer").Buffer;
 
@@ -3436,7 +3847,7 @@ function detectEncoding(buf, defaultEncoding) {
 
 
 
-},{"safer-buffer":43}],26:[function(require,module,exports){
+},{"safer-buffer":46}],29:[function(require,module,exports){
 "use strict";
 var Buffer = require("safer-buffer").Buffer;
 
@@ -3728,7 +4139,7 @@ Utf7IMAPDecoder.prototype.end = function() {
 
 
 
-},{"safer-buffer":43}],27:[function(require,module,exports){
+},{"safer-buffer":46}],30:[function(require,module,exports){
 "use strict";
 
 var BOMChar = '\uFEFF';
@@ -3782,7 +4193,7 @@ StripBOMWrapper.prototype.end = function() {
 }
 
 
-},{}],28:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 "use strict";
 var Buffer = require("buffer").Buffer;
 // Note: not polyfilled with safer-buffer on a purpose, as overrides Buffer
@@ -4001,7 +4412,7 @@ module.exports = function (iconv) {
     }
 }
 
-},{"buffer":undefined,"stream":undefined}],29:[function(require,module,exports){
+},{"buffer":undefined,"stream":undefined}],32:[function(require,module,exports){
 "use strict";
 
 // Some environments don't have global Buffer (e.g. React Native).
@@ -4156,7 +4567,7 @@ if ("Ā" != "\u0100") {
     console.error("iconv-lite warning: javascript files use encoding different from utf-8. See https://github.com/ashtuchkin/iconv-lite/wiki/Javascript-source-file-encodings for more info.");
 }
 
-},{"../encodings":12,"./bom-handling":27,"./extend-node":28,"./streams":30,"safer-buffer":43}],30:[function(require,module,exports){
+},{"../encodings":15,"./bom-handling":30,"./extend-node":31,"./streams":33,"safer-buffer":46}],33:[function(require,module,exports){
 "use strict";
 
 var Buffer = require("buffer").Buffer,
@@ -4279,7 +4690,7 @@ IconvLiteDecoderStream.prototype.collect = function(cb) {
 }
 
 
-},{"buffer":undefined,"stream":undefined}],31:[function(require,module,exports){
+},{"buffer":undefined,"stream":undefined}],34:[function(require,module,exports){
 var createHash = require('crypto').createHash;
 
 function get_header(header, credentials, opts) {
@@ -4387,7 +4798,7 @@ module.exports = {
   digest : digest.generate
 }
 
-},{"crypto":undefined}],32:[function(require,module,exports){
+},{"crypto":undefined}],35:[function(require,module,exports){
 //
 //  Simple cookie handling implementation based on the standard RFC 6265.
 //  This module just has two functionalities:
@@ -4470,7 +4881,7 @@ exports.read = parseSetCookieHeader;
 // writes a cookie string header
 exports.write = writeCookieString;
 
-},{}],33:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 var iconv,
     inherits  = require('util').inherits,
     stream    = require('stream');
@@ -4525,7 +4936,7 @@ module.exports = function(charset) {
     return new stream.PassThrough;
 }
 
-},{"iconv-lite":29,"stream":undefined,"util":undefined}],34:[function(require,module,exports){
+},{"iconv-lite":32,"stream":undefined,"util":undefined}],37:[function(require,module,exports){
 var readFile = require('fs').readFile,
     basename = require('path').basename;
 
@@ -4623,7 +5034,7 @@ function flatten(object, into, prefix) {
   return into;
 }
 
-},{"fs":undefined,"path":undefined}],35:[function(require,module,exports){
+},{"fs":undefined,"path":undefined}],38:[function(require,module,exports){
 (function (__dirname){(function (){
 //////////////////////////////////////////
 // Needle -- Node.js HTTP Client
@@ -5220,7 +5631,7 @@ exports.request = function(method, uri, data, opts, callback) {
 };
 
 }).call(this)}).call(this,require("path").join(__dirname,"node_modules","needle","lib"))
-},{"./auth":31,"./cookies":32,"./decoder":33,"./multipart":34,"./parsers":36,"./querystring":37,"debug":40,"fs":undefined,"http":undefined,"https":undefined,"path":undefined,"stream":undefined,"url":undefined,"zlib":undefined}],36:[function(require,module,exports){
+},{"./auth":34,"./cookies":35,"./decoder":36,"./multipart":37,"./parsers":39,"./querystring":40,"debug":43,"fs":undefined,"http":undefined,"https":undefined,"path":undefined,"stream":undefined,"url":undefined,"zlib":undefined}],39:[function(require,module,exports){
 //////////////////////////////////////////
 // Defines mappings between content-type
 // and the appropriate parsers.
@@ -5290,7 +5701,7 @@ try {
 
 } catch(e) { /* xml2js not found */ }
 
-},{"stream":undefined,"xml2js":50}],37:[function(require,module,exports){
+},{"stream":undefined,"xml2js":53}],40:[function(require,module,exports){
 // based on the qs module, but handles null objects as expected
 // fixes by Tomas Pollak.
 
@@ -5337,7 +5748,7 @@ function stringifyObject(obj, prefix) {
 
 exports.build = stringify;
 
-},{}],38:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 /**
  * This is the web browser implementation of `debug()`.
  *
@@ -5524,7 +5935,7 @@ function localstorage() {
   } catch (e) {}
 }
 
-},{"./debug":39}],39:[function(require,module,exports){
+},{"./debug":42}],42:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -5728,7 +6139,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":42}],40:[function(require,module,exports){
+},{"ms":45}],43:[function(require,module,exports){
 /**
  * Detect Electron renderer process, which is node, but we should
  * treat as a browser.
@@ -5740,7 +6151,7 @@ if (typeof process !== 'undefined' && process.type === 'renderer') {
   module.exports = require('./node.js');
 }
 
-},{"./browser.js":38,"./node.js":41}],41:[function(require,module,exports){
+},{"./browser.js":41,"./node.js":44}],44:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -5990,7 +6401,7 @@ function init (debug) {
 
 exports.enable(load());
 
-},{"./debug":39,"fs":undefined,"net":undefined,"tty":undefined,"util":undefined}],42:[function(require,module,exports){
+},{"./debug":42,"fs":undefined,"net":undefined,"tty":undefined,"util":undefined}],45:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -6144,7 +6555,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],43:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 /* eslint-disable node/no-deprecated-api */
 
 'use strict'
@@ -6223,7 +6634,7 @@ if (!safer.constants) {
 
 module.exports = safer
 
-},{"buffer":undefined}],44:[function(require,module,exports){
+},{"buffer":undefined}],47:[function(require,module,exports){
 ;(function (sax) { // wrapper for non-node envs
   sax.parser = function (strict, opt) { return new SAXParser(strict, opt) }
   sax.SAXParser = SAXParser
@@ -7822,7 +8233,7 @@ module.exports = safer
   }
 })(typeof exports === 'undefined' ? this.sax = {} : exports)
 
-},{"stream":undefined,"string_decoder":undefined}],45:[function(require,module,exports){
+},{"stream":undefined,"string_decoder":undefined}],48:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   "use strict";
@@ -7836,7 +8247,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],46:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   "use strict";
@@ -7965,7 +8376,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./defaults":47,"xmlbuilder":83}],47:[function(require,module,exports){
+},{"./defaults":50,"xmlbuilder":86}],50:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   exports.defaults = {
@@ -8039,7 +8450,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],48:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   "use strict";
@@ -8436,7 +8847,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./bom":45,"./defaults":47,"./processors":49,"events":undefined,"sax":44,"timers":undefined}],49:[function(require,module,exports){
+},{"./bom":48,"./defaults":50,"./processors":52,"events":undefined,"sax":47,"timers":undefined}],52:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   "use strict";
@@ -8472,7 +8883,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],50:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   "use strict";
@@ -8513,7 +8924,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./builder":46,"./defaults":47,"./parser":48,"./processors":49}],51:[function(require,module,exports){
+},{"./builder":49,"./defaults":50,"./parser":51,"./processors":52}],54:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   module.exports = {
@@ -8527,7 +8938,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],52:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   module.exports = {
@@ -8552,7 +8963,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],53:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var assign, getValue, isArray, isEmpty, isFunction, isObject, isPlainObject,
@@ -8637,7 +9048,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],54:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   module.exports = {
@@ -8649,7 +9060,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],55:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLAttribute, XMLNode;
@@ -8759,7 +9170,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],56:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],59:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLCData, XMLCharacterData,
@@ -8797,7 +9208,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLCharacterData":57}],57:[function(require,module,exports){
+},{"./NodeType":55,"./XMLCharacterData":60}],60:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLCharacterData, XMLNode,
@@ -8878,7 +9289,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./XMLNode":74}],58:[function(require,module,exports){
+},{"./XMLNode":77}],61:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLCharacterData, XMLComment,
@@ -8916,7 +9327,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLCharacterData":57}],59:[function(require,module,exports){
+},{"./NodeType":55,"./XMLCharacterData":60}],62:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLDOMConfiguration, XMLDOMErrorHandler, XMLDOMStringList;
@@ -8982,7 +9393,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./XMLDOMErrorHandler":60,"./XMLDOMStringList":62}],60:[function(require,module,exports){
+},{"./XMLDOMErrorHandler":63,"./XMLDOMStringList":65}],63:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLDOMErrorHandler;
@@ -9000,7 +9411,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],61:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLDOMImplementation;
@@ -9034,7 +9445,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],62:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLDOMStringList;
@@ -9064,7 +9475,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],63:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDTDAttList, XMLNode,
@@ -9121,7 +9532,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],64:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],67:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDTDElement, XMLNode,
@@ -9161,7 +9572,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],65:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],68:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDTDEntity, XMLNode, isObject,
@@ -9260,7 +9671,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./XMLNode":74}],66:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./XMLNode":77}],69:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDTDNotation, XMLNode,
@@ -9314,7 +9725,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],67:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],70:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDeclaration, XMLNode, isObject,
@@ -9359,7 +9770,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./XMLNode":74}],68:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./XMLNode":77}],71:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDocType, XMLNamedNodeMap, XMLNode, isObject,
@@ -9547,7 +9958,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./XMLDTDAttList":63,"./XMLDTDElement":64,"./XMLDTDEntity":65,"./XMLDTDNotation":66,"./XMLNamedNodeMap":73,"./XMLNode":74}],69:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./XMLDTDAttList":66,"./XMLDTDElement":67,"./XMLDTDEntity":68,"./XMLDTDNotation":69,"./XMLNamedNodeMap":76,"./XMLNode":77}],72:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDOMConfiguration, XMLDOMImplementation, XMLDocument, XMLNode, XMLStringWriter, XMLStringifier, isPlainObject,
@@ -9791,7 +10202,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./XMLDOMConfiguration":59,"./XMLDOMImplementation":61,"./XMLNode":74,"./XMLStringWriter":79,"./XMLStringifier":80}],70:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./XMLDOMConfiguration":62,"./XMLDOMImplementation":64,"./XMLNode":77,"./XMLStringWriter":82,"./XMLStringifier":83}],73:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, WriterState, XMLAttribute, XMLCData, XMLComment, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDeclaration, XMLDocType, XMLDocument, XMLDocumentCB, XMLElement, XMLProcessingInstruction, XMLRaw, XMLStringWriter, XMLStringifier, XMLText, getValue, isFunction, isObject, isPlainObject, ref,
@@ -10321,7 +10732,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./WriterState":54,"./XMLAttribute":55,"./XMLCData":56,"./XMLComment":58,"./XMLDTDAttList":63,"./XMLDTDElement":64,"./XMLDTDEntity":65,"./XMLDTDNotation":66,"./XMLDeclaration":67,"./XMLDocType":68,"./XMLDocument":69,"./XMLElement":72,"./XMLProcessingInstruction":76,"./XMLRaw":77,"./XMLStringWriter":79,"./XMLStringifier":80,"./XMLText":81}],71:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./WriterState":57,"./XMLAttribute":58,"./XMLCData":59,"./XMLComment":61,"./XMLDTDAttList":66,"./XMLDTDElement":67,"./XMLDTDEntity":68,"./XMLDTDNotation":69,"./XMLDeclaration":70,"./XMLDocType":71,"./XMLDocument":72,"./XMLElement":75,"./XMLProcessingInstruction":79,"./XMLRaw":80,"./XMLStringWriter":82,"./XMLStringifier":83,"./XMLText":84}],74:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLDummy, XMLNode,
@@ -10354,7 +10765,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],72:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],75:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLAttribute, XMLElement, XMLNamedNodeMap, XMLNode, getValue, isFunction, isObject, ref,
@@ -10654,7 +11065,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./XMLAttribute":55,"./XMLNamedNodeMap":73,"./XMLNode":74}],73:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./XMLAttribute":58,"./XMLNamedNodeMap":76,"./XMLNode":77}],76:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLNamedNodeMap;
@@ -10714,7 +11125,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],74:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var DocumentPosition, NodeType, XMLCData, XMLComment, XMLDeclaration, XMLDocType, XMLDummy, XMLElement, XMLNamedNodeMap, XMLNode, XMLNodeList, XMLProcessingInstruction, XMLRaw, XMLText, getValue, isEmpty, isFunction, isObject, ref1,
@@ -11501,7 +11912,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./DocumentPosition":51,"./NodeType":52,"./Utility":53,"./XMLCData":56,"./XMLComment":58,"./XMLDeclaration":67,"./XMLDocType":68,"./XMLDummy":71,"./XMLElement":72,"./XMLNamedNodeMap":73,"./XMLNodeList":75,"./XMLProcessingInstruction":76,"./XMLRaw":77,"./XMLText":81}],75:[function(require,module,exports){
+},{"./DocumentPosition":54,"./NodeType":55,"./Utility":56,"./XMLCData":59,"./XMLComment":61,"./XMLDeclaration":70,"./XMLDocType":71,"./XMLDummy":74,"./XMLElement":75,"./XMLNamedNodeMap":76,"./XMLNodeList":78,"./XMLProcessingInstruction":79,"./XMLRaw":80,"./XMLText":84}],78:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLNodeList;
@@ -11531,7 +11942,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],76:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLCharacterData, XMLProcessingInstruction,
@@ -11582,7 +11993,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLCharacterData":57}],77:[function(require,module,exports){
+},{"./NodeType":55,"./XMLCharacterData":60}],80:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLNode, XMLRaw,
@@ -11619,7 +12030,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLNode":74}],78:[function(require,module,exports){
+},{"./NodeType":55,"./XMLNode":77}],81:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, WriterState, XMLStreamWriter, XMLWriterBase,
@@ -11797,7 +12208,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./WriterState":54,"./XMLWriterBase":82}],79:[function(require,module,exports){
+},{"./NodeType":55,"./WriterState":57,"./XMLWriterBase":85}],82:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLStringWriter, XMLWriterBase,
@@ -11834,7 +12245,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./XMLWriterBase":82}],80:[function(require,module,exports){
+},{"./XMLWriterBase":85}],83:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var XMLStringifier,
@@ -12076,7 +12487,7 @@ module.exports = safer
 
 }).call(this);
 
-},{}],81:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, XMLCharacterData, XMLText,
@@ -12147,7 +12558,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./XMLCharacterData":57}],82:[function(require,module,exports){
+},{"./NodeType":55,"./XMLCharacterData":60}],85:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, WriterState, XMLCData, XMLComment, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDeclaration, XMLDocType, XMLDummy, XMLElement, XMLProcessingInstruction, XMLRaw, XMLText, XMLWriterBase, assign,
@@ -12577,7 +12988,7 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./WriterState":54,"./XMLCData":56,"./XMLComment":58,"./XMLDTDAttList":63,"./XMLDTDElement":64,"./XMLDTDEntity":65,"./XMLDTDNotation":66,"./XMLDeclaration":67,"./XMLDocType":68,"./XMLDummy":71,"./XMLElement":72,"./XMLProcessingInstruction":76,"./XMLRaw":77,"./XMLText":81}],83:[function(require,module,exports){
+},{"./NodeType":55,"./Utility":56,"./WriterState":57,"./XMLCData":59,"./XMLComment":61,"./XMLDTDAttList":66,"./XMLDTDElement":67,"./XMLDTDEntity":68,"./XMLDTDNotation":69,"./XMLDeclaration":70,"./XMLDocType":71,"./XMLDummy":74,"./XMLElement":75,"./XMLProcessingInstruction":79,"./XMLRaw":80,"./XMLText":84}],86:[function(require,module,exports){
 // Generated by CoffeeScript 1.12.7
 (function() {
   var NodeType, WriterState, XMLDOMImplementation, XMLDocument, XMLDocumentCB, XMLStreamWriter, XMLStringWriter, assign, isFunction, ref;
@@ -12644,5 +13055,5 @@ module.exports = safer
 
 }).call(this);
 
-},{"./NodeType":52,"./Utility":53,"./WriterState":54,"./XMLDOMImplementation":61,"./XMLDocument":69,"./XMLDocumentCB":70,"./XMLStreamWriter":78,"./XMLStringWriter":79}]},{},[1])(1)
+},{"./NodeType":55,"./Utility":56,"./WriterState":57,"./XMLDOMImplementation":64,"./XMLDocument":72,"./XMLDocumentCB":73,"./XMLStreamWriter":81,"./XMLStringWriter":82}]},{},[1])(1)
 });
