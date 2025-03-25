@@ -5,9 +5,10 @@ exports.TransitTimesResponse = class {
 };
 
 exports.CarrierTransitTime = class {
-    constructor(carrierId, estimatedDeliveryDates) {
+    constructor(carrierId, estimatedDeliveryDates, itemIds) {
         this.carrierId = carrierId;
         this.estimatedDeliveryDates = Array.isArray(estimatedDeliveryDates) ? estimatedDeliveryDates.map(x => x instanceof exports.EstimatedDeliveryDate ? x : null) : [];
+        this.itemIds = itemIds;
     }
 };
 
@@ -27,3 +28,40 @@ exports.Window = class {
         this.dropoffTime = dropoffTime;
     }
 };
+
+//converts DeliverySolutions epoch offsets to utc datetimes which kibo wants for these fields
+//TODO verify proper utc format
+exports.TimeWindow = class {
+  constructor(startsAt, endsAt) {
+
+    function convertEpochToCSharpDateTime(epochOffset) {
+      // Convert epoch offset to JavaScript Date object
+      const date = new Date(epochOffset); // Multiply by 1000 to convert seconds to milliseconds
+
+      // Format the date to C# DateTime format (e.g., "yyyy-MM-ddTHH:mm:ss.fffZ", "2019-10-23T06:55:32.426Z")
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+      const milliseconds = String(date.getUTCMilliseconds()).padStart(3, '0');
+
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}Z`;
+    }
+
+    var startDate = null;
+    if(startsAt !== null && startsAt !== undefined){
+      startDate = convertEpochToCSharpDateTime(startsAt);
+    }
+
+    var endDate = null;
+    if(endsAt !== null && endsAt !== undefined){
+      endDate = convertEpochToCSharpDateTime(endsAt);
+    }
+    this.startsAt = startDate;
+    this.endsAt = endDate;
+  }
+};
+
+
