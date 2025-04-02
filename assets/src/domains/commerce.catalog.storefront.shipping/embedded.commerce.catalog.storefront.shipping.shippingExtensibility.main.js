@@ -200,7 +200,7 @@ function getTransitTimesResponse(smartWindowResponse, itemId) {
 
         var existingDeliveryDate = existingTransitTime.estimatedDeliveryDates.find(x => x.deliveryDate === delivery.date);
         if (!existingDeliveryDate) {
-            existingDeliveryDate = CreateEstimatedDeliveryDate(delivery.date);
+            existingDeliveryDate = CreateEstimatedDeliveryDate(delivery.date, delivery.category);
             existingTransitTime.estimatedDeliveryDates.push(existingDeliveryDate);
         }
 
@@ -220,10 +220,11 @@ function CreateCarrierTransitTime(carrierId, itemId) {
     return carrierTransitTime;
 }
 
-function CreateEstimatedDeliveryDate(deliveryDate) {
+function CreateEstimatedDeliveryDate(deliveryDate, serviceType) {
     const estimatedDeliveryDate = new EstimatedDeliveryDate();
     estimatedDeliveryDate.fulfillmentMethod = 'Delivery';
     estimatedDeliveryDate.deliveryDate = deliveryDate;
+    estimatedDeliveryDate.serviceType = serviceType;
     return estimatedDeliveryDate;
 }
 

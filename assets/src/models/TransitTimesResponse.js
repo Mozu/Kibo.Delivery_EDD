@@ -13,9 +13,9 @@ exports.CarrierTransitTime = class {
 };
 
 exports.EstimatedDeliveryDate = class {
-    constructor(fulfillmentMethod, shippingMethod, timeZone, deliveryDate, windows, messages) {
+    constructor(fulfillmentMethod, serviceType, timeZone, deliveryDate, windows, messages) {
         this.fulfillmentMethod = fulfillmentMethod;
-        this.shippingMethod = shippingMethod;
+        this.serviceType = serviceType;
         this.timeZone = timeZone;
         this.deliveryDate = deliveryDate;
         this.windows = Array.isArray(windows) ? windows.map(x => x instanceof exports.Window ? x : null) : [];
