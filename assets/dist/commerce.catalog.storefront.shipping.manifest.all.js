@@ -316,7 +316,7 @@ const { SmartWindowRequest } = require('../../deliverysolutions/models/SmartWind
 const { RatesRequest, Item, DSPackage } = require('../../deliverysolutions/models/RatesRequest');
 const { RatesResponse } = require('../../deliverysolutions/models/RatesResponse');
 const { Data } = require('../../deliverysolutions/models/SmartWindowResponse');
-const { TransitTimesResponse, CarrierTransitTime, EstimatedDeliveryDate, Window, TimeWindow } = require('../../models/TransitTimesResponse');
+const { TransitTimesResponse, CarrierTransitTime, EstimatedDeliveryDate, Window, TimeWindow, ValidationMessage } = require('../../models/TransitTimesResponse');
 const { GetRatesResponse, Rate, ShippingRate, Content, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
 const { DeliverySolutionsSdk } = require('../../deliverysolutions/deliverysolutionssdk');
 const { FULFILLMENT_METHOD_DELIVERY, FULFILLMENT_METHOD_SHIP } = require('../../constants');
@@ -380,8 +380,15 @@ function combineAllItemWindows(itemResponses, itemIds) {
 
   var finalResp = new TransitTimesResponse();
   itemResponses.forEach((element, index) => {
-    const itemTransitTimes = getTransitTimesResponse(element.data[0], itemIds[index]);
-    finalResp.transitTimes = finalResp.transitTimes.concat(itemTransitTimes);
+    console.debug('SINGLE RESP');
+    console.debug(JSON.stringify(element));
+    if(element.status === 'fulfilled') {
+      const itemTransitTimes = getTransitTimesResponse(element.value.data[0], itemIds[index]);
+      finalResp.transitTimes = finalResp.transitTimes.concat(itemTransitTimes);
+    } else {
+      const erroredTransitTime = processSmartWindowsErrorResponse(element.reason, itemIds[index]);
+      finalResp.transitTimes = finalResp.transitTimes.concat(erroredTransitTime);
+    }
   });
   console.debug('final response');
   console.debug(JSON.stringify(finalResp));
@@ -390,7 +397,8 @@ function combineAllItemWindows(itemResponses, itemIds) {
 
 async function getSmartWindows(client, payloads) {
   const requests = payloads.map(payload => client.getSmartWindows(payload));
-  const responses = await Promise.all(requests);
+  //const responses = await Promise.all(requests);
+  const responses = await Promise.allSettled(requests); //responses.status fulfilled, rejected
 
   console.debug('got smartwindow responses!');
   console.debug(responses);
@@ -479,6 +487,17 @@ function getSmartWindowPayloads(kiboRequest) {
     });
 
     return payloads;
+}
+
+// Errors for this app can be returned to Kibo in Messages field
+function processSmartWindowsErrorResponse(error, itemId) {
+  const message = 'ErrorCode: ' + error.type + ', ErrorMessage: ' + error.message;
+  const validationMessage = new ValidationMessage("Error", message, null);
+  let erroredEdd = new EstimatedDeliveryDate(FULFILLMENT_METHOD_DELIVERY, null, null, null, null, [validationMessage]);
+  let erroredCarrierTransitTimes = new CarrierTransitTime();
+  erroredCarrierTransitTimes.itemIds = [itemId];
+  erroredCarrierTransitTimes.estimatedDeliveryDates.push(erroredEdd);
+  return [erroredCarrierTransitTimes];
 }
 
 function getTransitTimesResponse(smartWindowResponse, itemId) {
@@ -733,12 +752,13 @@ exports.CarrierTransitTime = class {
 };
 
 exports.EstimatedDeliveryDate = class {
-    constructor(fulfillmentMethod, shippingMethod, timeZone, deliveryDate, windows) {
+    constructor(fulfillmentMethod, shippingMethod, timeZone, deliveryDate, windows, messages) {
         this.fulfillmentMethod = fulfillmentMethod;
         this.shippingMethod = shippingMethod;
         this.timeZone = timeZone;
         this.deliveryDate = deliveryDate;
         this.windows = Array.isArray(windows) ? windows.map(x => x instanceof exports.Window ? x : null) : [];
+        this.messages = messages;
     }
 };
 
@@ -781,6 +801,14 @@ exports.TimeWindow = class {
     }
     this.startsAt = startDate;
     this.endsAt = endDate;
+  }
+};
+
+exports.ValidationMessage = class {
+  constructor(severity, message, helpLink) {
+    this.severity = severity;
+    this.message = message;
+    this.helpLink = helpLink;
   }
 };
 

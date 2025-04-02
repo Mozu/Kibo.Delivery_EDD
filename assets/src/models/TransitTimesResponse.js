@@ -13,12 +13,13 @@ exports.CarrierTransitTime = class {
 };
 
 exports.EstimatedDeliveryDate = class {
-    constructor(fulfillmentMethod, shippingMethod, timeZone, deliveryDate, windows) {
+    constructor(fulfillmentMethod, shippingMethod, timeZone, deliveryDate, windows, messages) {
         this.fulfillmentMethod = fulfillmentMethod;
         this.shippingMethod = shippingMethod;
         this.timeZone = timeZone;
         this.deliveryDate = deliveryDate;
         this.windows = Array.isArray(windows) ? windows.map(x => x instanceof exports.Window ? x : null) : [];
+        this.messages = messages;
     }
 };
 
@@ -61,6 +62,14 @@ exports.TimeWindow = class {
     }
     this.startsAt = startDate;
     this.endsAt = endDate;
+  }
+};
+
+exports.ValidationMessage = class {
+  constructor(severity, message, helpLink) {
+    this.severity = severity;
+    this.message = message;
+    this.helpLink = helpLink;
   }
 };
 
