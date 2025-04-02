@@ -3,7 +3,7 @@ const { RatesRequest, Item, DSPackage } = require('../../deliverysolutions/model
 const { RatesResponse } = require('../../deliverysolutions/models/RatesResponse');
 const { Data } = require('../../deliverysolutions/models/SmartWindowResponse');
 const { TransitTimesResponse, CarrierTransitTime, EstimatedDeliveryDate, Window, TimeWindow } = require('../../models/TransitTimesResponse');
-const { GetRatesResponse, Rate, ShippingRate, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
+const { GetRatesResponse, Rate, ShippingRate, Content, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
 const { DeliverySolutionsSdk } = require('../../deliverysolutions/deliverysolutionssdk');
 const { FULFILLMENT_METHOD_DELIVERY, FULFILLMENT_METHOD_SHIP } = require('../../constants');
 
@@ -280,7 +280,9 @@ function getRatesResponse(ratesResponse) {
         var shippingRate = new ShippingRate();
         const pickupDate = new Date(rate.estimatedPickupTime);
         shippingRate.code = rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
-        shippingRate.content = {};
+        shippingRate.content = new Content();
+        shippingRate.content.localeCode = 'en-US';
+        shippingRate.content.name = rate.provider + ' ' + rate.serviceType + ' ' + pickupDate.getUTCHours();
         shippingRate.amount = getAmount(rate.amount, rate.fee, rate.currency);
         //shippingRate.daysInTransit = rate.estimatedDeliveryTime;
         //shippingRate.shippingItemRates = rate.chargeDetails;
