@@ -213,7 +213,7 @@ function getRatesPayload(requestPayload) {
     body.deliveryAddress = {
         apartmentNumber: requestPayload.destinationAddress.address1,
         street: requestPayload.destinationAddress.address2,
-        street2: requestPayload.destinationAddress.address3,
+        street2: requestPayload.destinationAddress.address3 ? requestPayload.destinationAddress.address3 : requestPayload.destinationAddress.address2,
         city: requestPayload.destinationAddress.cityOrTown,
         state: requestPayload.destinationAddress.stateOrProvince,
         zipcode: requestPayload.destinationAddress.postalOrZipCode,
