@@ -430,7 +430,7 @@ async function getRates(requestContext, requestPayload) {
             //     throw new Error('DS Get Rates Error Response', result.message);
             // }
 
-            const response = getRatesResponse(result);
+            const response = getRatesResponse(result, requestContext.carrierId);
             console.debug('--------------Carrier Rates-------------------');
             console.debug(response);
             return response;
@@ -575,8 +575,9 @@ function getRatesItem(items) {
 /**
  *
  * @param {RatesResponse} rates
+ * @param {string} carrierId
  */
-function getRatesResponse(ratesResponse) {
+function getRatesResponse(ratesResponse, carrierId) {
     const response = new GetRatesResponse();
 
     ratesResponse.rates.forEach(rate => {
@@ -593,7 +594,7 @@ function getRatesResponse(ratesResponse) {
 
         var shippingRate = new ShippingRate();
         const pickupDate = new Date(rate.estimatedPickupTime);
-        shippingRate.code = rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
+        shippingRate.code = carrierId + '_' + rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
         shippingRate.content = new Content();
         shippingRate.content.localeCode = 'en-US';
         shippingRate.content.name = rate.provider + ' ' + rate.serviceType + ' ' + pickupDate.getUTCHours();
