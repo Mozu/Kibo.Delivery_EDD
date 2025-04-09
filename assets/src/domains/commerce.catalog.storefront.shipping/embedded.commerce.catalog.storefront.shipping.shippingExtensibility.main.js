@@ -3,7 +3,7 @@ const { RatesRequest, Item, DSPackage } = require('../../deliverysolutions/model
 const { RatesResponse } = require('../../deliverysolutions/models/RatesResponse');
 const { Data } = require('../../deliverysolutions/models/SmartWindowResponse');
 const { TransitTimesResponse, CarrierTransitTime, EstimatedDeliveryDate, Window, TimeWindow } = require('../../models/TransitTimesResponse');
-const { GetRatesResponse, Rate, ShippingRate, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
+const { GetRatesResponse, Rate, ShippingRate, Content, ShippingRateValidationMessage } = require('../../models/GetRatesResponse');
 const { DeliverySolutionsSdk } = require('../../deliverysolutions/deliverysolutionssdk');
 const { FULFILLMENT_METHOD_DELIVERY, FULFILLMENT_METHOD_SHIP } = require('../../constants');
 
@@ -116,7 +116,7 @@ async function getRates(requestContext, requestPayload) {
             //     throw new Error('DS Get Rates Error Response', result.message);
             // }
 
-            const response = getRatesResponse(result);
+            const response = getRatesResponse(result, requestContext.carrierId);
             console.debug('--------------Carrier Rates-------------------');
             console.debug(response);
             return response;
@@ -213,7 +213,7 @@ function getRatesPayload(requestPayload) {
     body.deliveryAddress = {
         apartmentNumber: requestPayload.destinationAddress.address1,
         street: requestPayload.destinationAddress.address2,
-        street2: requestPayload.destinationAddress.address3,
+        street2: requestPayload.destinationAddress.address3 ? requestPayload.destinationAddress.address3 : requestPayload.destinationAddress.address2,
         city: requestPayload.destinationAddress.cityOrTown,
         state: requestPayload.destinationAddress.stateOrProvince,
         zipcode: requestPayload.destinationAddress.postalOrZipCode,
@@ -261,8 +261,9 @@ function getRatesItem(items) {
 /**
  *
  * @param {RatesResponse} rates
+ * @param {string} carrierId
  */
-function getRatesResponse(ratesResponse) {
+function getRatesResponse(ratesResponse, carrierId) {
     const response = new GetRatesResponse();
 
     ratesResponse.rates.forEach(rate => {
@@ -279,8 +280,10 @@ function getRatesResponse(ratesResponse) {
 
         var shippingRate = new ShippingRate();
         const pickupDate = new Date(rate.estimatedPickupTime);
-        shippingRate.code = rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
-        shippingRate.content = {};
+        shippingRate.code = carrierId + '_' + rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
+        shippingRate.content = new Content();
+        shippingRate.content.localeCode = 'en-US';
+        shippingRate.content.name = rate.provider + ' ' + rate.serviceType + ' ' + pickupDate.getUTCHours();
         shippingRate.amount = getAmount(rate.amount, rate.fee, rate.currency);
         //shippingRate.daysInTransit = rate.estimatedDeliveryTime;
         //shippingRate.shippingItemRates = rate.chargeDetails;
