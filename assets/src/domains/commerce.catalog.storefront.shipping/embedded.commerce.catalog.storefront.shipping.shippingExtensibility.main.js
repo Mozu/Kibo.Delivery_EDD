@@ -300,10 +300,10 @@ function getRatesResponse(ratesResponse, carrierId) {
 
         var shippingRate = new ShippingRate();
         const pickupDate = new Date(rate.estimatedPickupTime);
-        shippingRate.code = carrierId + '_' + rate.provider + '_' + rate.serviceType + '_' + pickupDate.getUTCHours();
+        shippingRate.code = carrierId + '_' + rate.provider + '_' + rate.serviceType;
         shippingRate.content = new Content();
         shippingRate.content.localeCode = 'en-US';
-        shippingRate.content.name = rate.provider + ' ' + rate.serviceType + ' ' + pickupDate.getUTCHours();
+        shippingRate.content.name = rate.provider + ' ' + rate.serviceType;
         shippingRate.amount = getAmount(rate.amount, rate.fee, rate.currency);
         //shippingRate.daysInTransit = rate.estimatedDeliveryTime;
         //shippingRate.shippingItemRates = rate.chargeDetails;
